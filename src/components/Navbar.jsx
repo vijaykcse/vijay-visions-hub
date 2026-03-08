@@ -9,9 +9,17 @@ export default function Navbar() {
         Vijay <span className="text-transparent bg-clip-text bg-gradient-to-r from-black via-gray-600 to-gray-400">Visions</span>
       </Link>
 
-      <div className="flex gap-6">
-        <Link to="/" className="text-black/50 hover:text-black font-medium transition-all hover:scale-105">
-          Recommended Products
+      <div className="flex items-center gap-4 sm:gap-6">
+        <Link to="/" className="text-black/50 hover:text-black font-medium transition-all hover:scale-105 hidden sm:block">
+          Products
+        </Link>
+        
+        {/* --- NEW: SUBTLE ADMIN LOGIN BUTTON --- */}
+        <Link 
+          to="/admin/login" 
+          className="text-[10px] sm:text-xs font-bold text-black/30 hover:text-black/80 transition-colors uppercase tracking-widest border border-black/10 px-3 py-1.5 rounded-lg hover:bg-black/5"
+        >
+          Admin
         </Link>
       </div>
 
