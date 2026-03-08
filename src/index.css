@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+
+/* Default background */
+@theme {
+  --blur-2xs: 2px; 
+}
