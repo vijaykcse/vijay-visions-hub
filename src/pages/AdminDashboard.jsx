@@ -8,7 +8,10 @@ export default function AdminDashboard() {
   const [editingId, setEditingId] = useState(null)
 
   const [profileUploading, setProfileUploading] = useState(false)
-  const [profileData, setProfileData] = useState({ name: '', bio: '', imageUrl: '' })
+  // NEW: Added social media fields to our state
+  const [profileData, setProfileData] = useState({ 
+    name: '', bio: '', imageUrl: '', instagram: '', youtube: '', linkedin: '', facebook: '', email: '' 
+  })
 
   useEffect(() => {
     fetchProducts()
@@ -17,7 +20,18 @@ export default function AdminDashboard() {
 
   async function fetchProfile() {
     const { data } = await supabase.from('profile').select('*').eq('id', 1).single()
-    if (data) setProfileData({ name: data.name, bio: data.bio, imageUrl: data.imageUrl })
+    if (data) {
+      setProfileData({ 
+        name: data.name || '', 
+        bio: data.bio || '', 
+        imageUrl: data.imageUrl || '',
+        instagram: data.instagram || '',
+        youtube: data.youtube || '',
+        linkedin: data.linkedin || '',
+        facebook: data.facebook || '',
+        email: data.email || ''
+      })
+    }
   }
 
   const handleProfileChange = (e) => setProfileData({ ...profileData, [e.target.name]: e.target.value })
@@ -42,9 +56,19 @@ export default function AdminDashboard() {
   const handleProfileSubmit = async (e) => {
     e.preventDefault()
     try {
-      const { error } = await supabase.from('profile').update({ name: profileData.name, bio: profileData.bio, "imageUrl": profileData.imageUrl }).eq('id', 1)
+      // NEW: Added social fields to the update payload
+      const { error } = await supabase.from('profile').update({ 
+        name: profileData.name, 
+        bio: profileData.bio, 
+        "imageUrl": profileData.imageUrl,
+        instagram: profileData.instagram,
+        youtube: profileData.youtube,
+        linkedin: profileData.linkedin,
+        facebook: profileData.facebook,
+        email: profileData.email
+      }).eq('id', 1)
       if (error) throw error
-      alert('Profile updated!')
+      alert('Profile & Socials updated!')
     } catch (error) {
       alert('Error updating profile!')
     }
@@ -119,57 +143,74 @@ export default function AdminDashboard() {
     }
   }
 
-  const inputClass = "p-3 rounded-xl bg-black/[0.04] border border-black/10 w-full text-black placeholder-black/30 focus:border-black/30 focus:outline-none transition-all text-sm"
-  const panelClass = "bg-black/[0.02] backdrop-blur-xl p-6 rounded-3xl shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-black/10"
+  const inputClass = "w-full p-3.5 rounded-xl bg-white/50 border border-white/80 focus:outline-none focus:ring-2 focus:ring-slate-400/20 focus:border-slate-400 text-slate-800 placeholder-slate-400 shadow-sm transition-all text-sm font-medium"
+  const panelClass = "bg-white/40 backdrop-blur-2xl border border-white/60 p-6 sm:p-8 rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] relative z-20"
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-10 w-full max-w-7xl mx-auto bg-transparent relative">
+    <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-10 w-full max-w-7xl mx-auto bg-[#faf9f8] relative min-h-screen">
 
-      <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
-        <div className="absolute top-0 -left-40 w-[500px] h-[500px] bg-black/[0.03] rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 -right-20 w-[400px] h-[400px] bg-black/[0.02] rounded-full blur-[100px]" />
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div className="absolute -top-40 -left-20 w-[600px] h-[600px] bg-orange-200/40 rounded-full blur-[120px] mix-blend-multiply" />
+        <div className="absolute top-1/3 -right-40 w-[700px] h-[700px] bg-blue-200/40 rounded-full blur-[150px] mix-blend-multiply" />
+        <div className="absolute -bottom-40 left-1/4 w-[500px] h-[500px] bg-purple-200/30 rounded-full blur-[120px] mix-blend-multiply" />
+        <div className="absolute inset-0 bg-white/30 backdrop-blur-[50px] z-10" />
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 relative z-10 lg:items-start">
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 relative z-20 lg:items-start pt-4">
 
-        {/* LEFT COLUMN: FORMS */}
-        <div className="w-full lg:w-5/12 flex flex-col gap-6">
+        <div className="w-full lg:w-5/12 flex flex-col gap-6 lg:gap-8 shrink-0">
           
+          {/* PROFILE & SOCIALS EDITOR */}
           <div className={panelClass}>
-            <h2 className="text-xl font-black text-black mb-4 tracking-tight">Profile</h2>
-            <form onSubmit={handleProfileSubmit} className="space-y-3 flex flex-col">
-              <div className="flex items-center gap-4 bg-black/[0.03] p-3 rounded-xl border border-black/10">
+            <h2 className="text-xl font-black text-slate-800 mb-5 tracking-tight flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              Profile & Socials
+            </h2>
+            <form onSubmit={handleProfileSubmit} className="space-y-4 flex flex-col">
+              <div className="flex items-center gap-4 bg-white/50 p-3 rounded-2xl border border-white/80 shadow-sm">
                 {profileData.imageUrl && (
-                  <img src={profileData.imageUrl} alt="Profile" className="w-10 h-10 rounded-full object-cover shadow-sm" />
+                  <img src={profileData.imageUrl} alt="Profile" className="w-12 h-12 rounded-full object-cover shadow-sm border border-white" />
                 )}
                 <div className="flex-1">
-                  <input type="file" accept="image/*" onChange={handleProfileImageUpload} disabled={profileUploading} className="file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-black file:text-white w-full text-xs" />
+                  <input type="file" accept="image/*" onChange={handleProfileImageUpload} disabled={profileUploading} className="file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-800 file:text-white w-full text-xs text-slate-600 hover:file:bg-slate-700 transition-all cursor-pointer" />
                 </div>
               </div>
-              <input type="text" name="name" placeholder="Name" value={profileData.name} onChange={handleProfileChange} required className={inputClass} />
-              <textarea name="bio" placeholder="Bio..." value={profileData.bio} onChange={handleProfileChange} required className={`${inputClass} h-16 resize-none`} />
-              <button type="submit" disabled={profileUploading} className="bg-black text-white text-sm hover:bg-black/80 font-black py-2.5 rounded-xl disabled:opacity-40 transition-all">Save Profile</button>
+              <input type="text" name="name" placeholder="Creator Name" value={profileData.name} onChange={handleProfileChange} required className={inputClass} />
+              <textarea name="bio" placeholder="Bio..." value={profileData.bio} onChange={handleProfileChange} required className={`${inputClass} h-20 resize-none`} />
+              
+              {/* NEW: SOCIAL MEDIA INPUT SECTION */}
+              <div className="pt-2 pb-2 space-y-3">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Social Links <span className="text-slate-400 font-normal lowercase">(Leave blank to hide)</span></p>
+                <input type="url" name="instagram" placeholder="Instagram URL" value={profileData.instagram} onChange={handleProfileChange} className={inputClass} />
+                <input type="url" name="youtube" placeholder="YouTube URL" value={profileData.youtube} onChange={handleProfileChange} className={inputClass} />
+                <input type="url" name="linkedin" placeholder="LinkedIn URL" value={profileData.linkedin} onChange={handleProfileChange} className={inputClass} />
+                <input type="url" name="facebook" placeholder="Facebook URL" value={profileData.facebook} onChange={handleProfileChange} className={inputClass} />
+                <input type="email" name="email" placeholder="Contact Email Address" value={profileData.email} onChange={handleProfileChange} className={inputClass} />
+              </div>
+
+              <button type="submit" disabled={profileUploading} className="bg-slate-800 text-white text-sm hover:bg-slate-700 font-black py-3 rounded-xl disabled:opacity-40 transition-all shadow-md shadow-slate-800/10 mt-2">Update Profile</button>
             </form>
           </div>
 
           <div className={panelClass}>
-            <h2 className="text-xl font-black text-black mb-4 tracking-tight">
-              {editingId ? 'Edit Product' : 'Add Product'}
+            <h2 className="text-xl font-black text-slate-800 mb-5 tracking-tight flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              {editingId ? 'Edit Product' : 'Add New Product'}
             </h2>
-            <form onSubmit={handleSubmit} className="space-y-3 flex flex-col">
+            <form onSubmit={handleSubmit} className="space-y-4 flex flex-col">
               
               {editingId && formData.image && (
-                <div className="flex justify-center mb-1">
-                   <img src={formData.image} alt="Preview" className="w-16 h-16 object-contain bg-white rounded-lg border border-black/10 p-1" />
+                <div className="flex justify-center mb-2">
+                   <img src={formData.image} alt="Preview" className="w-20 h-20 object-contain bg-white rounded-2xl border border-slate-100 p-2 shadow-sm" />
                 </div>
               )}
 
-              <div className="bg-black/[0.03] p-3 rounded-xl border border-black/10">
-                <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} className="file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-black/10 file:text-black w-full text-xs" />
-                {formData.image && !editingId && <p className="text-[10px] text-black/60 mt-1 font-bold">✓ Image ready</p>}
+              <div className="bg-white/50 p-3 rounded-2xl border border-white/80 shadow-sm">
+                <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} className="file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white file:text-slate-800 file:shadow-sm w-full text-xs text-slate-600 cursor-pointer" />
+                {formData.image && !editingId && <p className="text-[10px] text-emerald-600 mt-2 font-bold px-1 flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Image uploaded</p>}
               </div>
               
-              <input type="text" name="title" placeholder="Title" value={formData.title} onChange={handleChange} required className={inputClass} />
+              <input type="text" name="title" placeholder="Product Title" value={formData.title} onChange={handleChange} required className={inputClass} />
               
               <input 
                 type="text" 
@@ -182,20 +223,20 @@ export default function AdminDashboard() {
                 className={inputClass} 
               />
               <datalist id="category-options">
-                <option value="Creator Products" />
+                <option value="Creator Gear" />
                 <option value="Tech Gadgets" />
                 <option value="Mobile Accessories" />
                 <option value="PC Setup" />
               </datalist>
               
-              <input type="url" name="affiliateLink" placeholder="Amazon Link" value={formData.affiliateLink} onChange={handleChange} required className={inputClass} />
+              <input type="url" name="affiliateLink" placeholder="Affiliate Link (Amazon, etc.)" value={formData.affiliateLink} onChange={handleChange} required className={inputClass} />
               
-              <div className="flex gap-2 pt-1">
-                <button type="submit" disabled={uploading || !formData.image} className="flex-1 bg-black text-white text-sm hover:bg-black/80 font-black py-2.5 rounded-xl disabled:opacity-40 transition-all">
-                  {editingId ? 'Update' : 'Publish'}
+              <div className="flex gap-3 pt-2">
+                <button type="submit" disabled={uploading || !formData.image} className="flex-1 bg-slate-800 text-white text-sm hover:bg-slate-700 font-black py-3 rounded-xl disabled:opacity-40 transition-all shadow-md shadow-slate-800/10">
+                  {editingId ? 'Update Product' : 'Publish Product'}
                 </button>
                 {editingId && (
-                  <button type="button" onClick={cancelEdit} className="bg-black/10 text-black text-sm hover:bg-black/20 font-black px-4 rounded-xl transition-all">Cancel</button>
+                  <button type="button" onClick={cancelEdit} className="bg-white text-slate-600 border border-white/80 text-sm hover:bg-slate-50 font-black px-5 rounded-xl transition-all shadow-sm">Cancel</button>
                 )}
               </div>
             </form>
@@ -203,34 +244,46 @@ export default function AdminDashboard() {
 
         </div>
 
-        {/* RIGHT COLUMN: MANAGE PRODUCTS */}
         <div className={`w-full lg:w-7/12 ${panelClass} flex flex-col max-h-[85vh]`}>
-          <h2 className="text-xl font-black text-black mb-4 shrink-0">Manage Products</h2>
+          <div className="flex items-center justify-between mb-6 shrink-0 border-b border-black/5 pb-4">
+             <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                Manage Inventory
+             </h2>
+             <span className="bg-white/60 text-slate-600 text-xs font-bold px-3 py-1 rounded-full border border-white/80 shadow-sm">{products.length} Items</span>
+          </div>
           
-          <div className="space-y-3 overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin' }}>
+          <div className="space-y-3 overflow-y-auto pr-2 pb-4" style={{ scrollbarWidth: 'thin' }}>
             {products.map(product => (
-              <div key={product.id} className="flex items-center justify-between p-3 bg-black/[0.03] rounded-2xl border border-black/[0.06] hover:border-black/15 transition-all gap-3">
+              <div key={product.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-white/40 rounded-2xl border border-white/80 hover:bg-white/60 transition-all gap-4 shadow-sm group">
                 
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <img src={product.image} alt={product.title} className="w-10 h-10 object-cover rounded-lg bg-white border border-black/5 p-0.5 shrink-0" />
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-black text-sm truncate">{product.title}</h3>
-                    <p className="text-[10px] text-black/50 font-bold uppercase tracking-widest truncate">{product.category}</p>
+                <div className="flex items-center gap-4 overflow-hidden">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white rounded-xl border border-slate-100 flex items-center justify-center shrink-0 p-1.5 shadow-sm">
+                    <img src={product.image} alt={product.title} className="w-full h-full object-contain mix-blend-multiply" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-slate-800 text-sm truncate">{product.title}</h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate mt-0.5">{product.category}</p>
                   </div>
                 </div>
 
-                <div className="flex gap-1.5 shrink-0">
-                  <button onClick={() => handleEditClick(product)} className="bg-black/5 hover:bg-black/10 text-black/60 hover:text-black px-3 py-1.5 text-xs rounded-lg font-bold transition-all border border-transparent hover:border-black/10">
+                <div className="flex gap-2 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                  <button onClick={() => handleEditClick(product)} className="bg-white hover:bg-slate-50 text-slate-600 px-4 py-2 text-xs rounded-xl font-bold transition-all shadow-sm border border-slate-200">
                     Edit
                   </button>
-                  <button onClick={() => handleDelete(product.id)} className="bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-red-600 px-3 py-1.5 text-xs rounded-lg font-bold transition-all border border-transparent hover:border-red-500/20">
+                  <button onClick={() => handleDelete(product.id)} className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 text-xs rounded-xl font-bold transition-all shadow-sm border border-red-100">
                     Delete
                   </button>
                 </div>
 
               </div>
             ))}
-            {products.length === 0 && <p className="text-black/30 font-bold text-sm italic">No products found.</p>}
+            {products.length === 0 && (
+              <div className="text-center py-10">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto text-slate-300 mb-3"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                 <p className="text-slate-400 font-bold text-sm">Your inventory is empty.</p>
+              </div>
+            )}
           </div>
         </div>
 
