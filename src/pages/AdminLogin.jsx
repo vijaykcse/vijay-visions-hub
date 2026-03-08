@@ -5,13 +5,12 @@ import { supabase } from '../lib/supabase'
 export default function AdminLogin() {
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
-  const [step, setStep] = useState(1) // Step 1: Ask for Email, Step 2: Ask for Code
+  const [step, setStep] = useState(1) 
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
 
   const navigate = useNavigate()
 
-  // --- STEP 1: Send the 6-digit code to the email ---
   const handleSendCode = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -25,12 +24,11 @@ export default function AdminLogin() {
       setError(error.message)
       setLoading(false)
     } else {
-      setStep(2) // Successfully sent! Move to the code entry screen
+      setStep(2) 
       setLoading(false)
     }
   }
 
-  // --- STEP 2: Verify the code and log the admin in ---
   const handleVerifyCode = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -46,7 +44,7 @@ export default function AdminLogin() {
       setError(error.message)
       setLoading(false)
     } else if (data.session) {
-      navigate('/admin') // Code is correct, let them in!
+      navigate('/admin') 
     }
   }
 
@@ -104,12 +102,14 @@ export default function AdminLogin() {
           <form onSubmit={handleVerifyCode} className="space-y-6">
             <div>
               <p className="text-center text-sm font-bold text-black/50 mb-4">
-                We sent a 6-digit code to<br/><span className="text-black">{email}</span>
+                We sent an 8-digit code to<br/><span className="text-black">{email}</span>
               </p>
+              
+              {/* UPDATED: Changed maxLength to 8 and placeholder to match */}
               <input
                 type="text"
-                maxLength="6"
-                placeholder="000000"
+                maxLength="8"
+                placeholder="00000000"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 className={inputClass}
@@ -117,9 +117,10 @@ export default function AdminLogin() {
               />
             </div>
 
+            {/* UPDATED: Button will now enable when all 8 digits are typed */}
             <button
               type="submit"
-              disabled={loading || code.length < 6}
+              disabled={loading || code.length < 8}
               className="w-full bg-black text-white font-black py-4 rounded-xl hover:bg-black/80 transition-all shadow-[0_10px_30px_rgba(0,0,0,0.10)] disabled:opacity-40 active:scale-95"
             >
               {loading ? 'Verifying...' : 'Verify & Login'}
