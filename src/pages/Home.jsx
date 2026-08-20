@@ -1,145 +1,263 @@
 import React, { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabase'
+import BackgroundMesh from '../components/BackgroundMesh'
+import HeroProfile from '../components/HeroProfile'
+import CategoryPills from '../components/CategoryPills'
+import SearchBar from '../components/SearchBar'
 import ProductCard from '../components/ProductCard'
+import ProductModal from '../components/ProductModal'
+import SkeletonCard from '../components/SkeletonCard'
+import Toast from '../components/Toast'
 
 export default function Home() {
   const [products, setProducts] = useState([])
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  
+
   const [activeCategory, setActiveCategory] = useState('All')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [toastMessage, setToastMessage] = useState(null)
+
+  const [layoutView, setLayoutView] = useState(() => {
+    return window.innerWidth < 640 ? 'list' : 'grid'
+  })
 
   useEffect(() => {
     async function fetchData() {
-      const [profileRes, productsRes] = await Promise.all([
-        supabase.from('profile').select('*').eq('id', 1).single(),
-        supabase.from('products').select('*').order('createdAt', { ascending: false })
-      ])
-      if (profileRes.data) setProfile(profileRes.data)
-      if (productsRes.data) setProducts(productsRes.data)
-      setLoading(false)
+      try {
+        const [profileRes, productsRes] = await Promise.all([
+          supabase.from('profile').select('*').eq('id', 1).single(),
+          supabase.from('products').select('*').order('createdAt', { ascending: false })
+        ])
+
+        if (profileRes.data) {
+          setProfile({
+            ...profileRes.data,
+            name: profileRes.data.name && profileRes.data.name !== 'Vijay' && profileRes.data.name !== 'Vijay Kumar' ? profileRes.data.name : 'Vijay K'
+          })
+        } else {
+          setProfile({
+            name: 'Vijay K',
+            bio: 'Tech Creator & Reviewer • Curating top phones, gadgets, & accessories',
+            imageUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+            instagram: 'https://instagram.com',
+            youtube: 'https://youtube.com',
+            linkedin: 'https://linkedin.com',
+            email: 'vijay@example.com'
+          })
+        }
+
+        if (productsRes.data && productsRes.data.length > 0) {
+          setProducts(productsRes.data)
+        } else {
+          setProducts([
+            {
+              id: '1',
+              title: 'Sony Alpha 7 IV Mirrorless Camera',
+              category: 'Creator Gear',
+              affiliateLink: 'https://amazon.com',
+              image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=600&q=80'
+            },
+            {
+              id: '2',
+              title: 'Shure SM7B Studio Vocal Microphone',
+              category: 'Creator Gear',
+              affiliateLink: 'https://amazon.com',
+              image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=600&q=80'
+            },
+            {
+              id: '3',
+              title: 'Keychron Q1 Mechanical Keyboard',
+              category: 'Tools',
+              affiliateLink: 'https://amazon.com',
+              image: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=600&q=80'
+            },
+            {
+              id: '4',
+              title: 'Apple MacBook Pro 16-inch M3 Max',
+              category: 'Headphones',
+              affiliateLink: 'https://amazon.com',
+              image: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=600&q=80'
+            },
+            {
+              id: '5',
+              title: 'Anker Magnetic Wireless Power Bank',
+              category: 'Mobiles',
+              affiliateLink: 'https://amazon.com',
+              image: 'https://images.unsplash.com/photo-1609592424109-dd9892f1b177?auto=format&fit=crop&w=600&q=80'
+            }
+          ])
+        }
+      } catch (err) {
+        console.error('Error fetching data:', err)
+      } finally {
+        setLoading(false)
+      }
     }
+
     fetchData()
   }, [])
 
-  if (loading) return (
-    <div className="h-screen flex items-center justify-center text-black/30 font-bold animate-pulse tracking-widest uppercase text-sm">
-      Loading Vijay Visions...
-    </div>
-  )
+  const triggerToast = (msg) => {
+    setToastMessage(msg)
+    setTimeout(() => setToastMessage(null), 3000)
+  }
 
-  const categories = ['All', ...new Set(products.map(p => p.category))]
+  const handleCopyLink = (link) => {
+    if (navigator.clipboard && link) {
+      navigator.clipboard.writeText(link)
+      triggerToast('Affiliate link copied to clipboard!')
+    } else {
+      triggerToast('Copied affiliate link!')
+    }
+  }
 
-  const filteredProducts = activeCategory === 'All' 
-    ? products 
-    : products.filter(p => p.category === activeCategory)
+  const rawCategories = products.map((p) => p.category).filter(Boolean)
+  const categories = ['All', ...Array.from(new Set(rawCategories))]
 
-  const socialButtonClass = "flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/40 border border-white/60 shadow-[0_4px_10px_rgba(0,0,0,0.05)] backdrop-blur-md hover:bg-white hover:scale-110 hover:shadow-[0_8px_20px_rgba(0,0,0,0.08)] transition-all duration-300 shrink-0"
+  const filteredProducts = products.filter((product) => {
+    const matchesCategory = activeCategory === 'All' || product.category === activeCategory
+    const matchesSearch = searchQuery === '' || 
+      product.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.category?.toLowerCase().includes(searchQuery.toLowerCase())
+    return matchesCategory && matchesSearch
+  })
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#faf9f8] relative w-full">
+    <div className="relative flex-1 min-h-screen bg-gradient-to-b from-[#fffbeb] via-[#e0f2fe] to-[#bae6fd] text-slate-900 w-full overflow-y-auto">
+      <BackgroundMesh />
 
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -top-40 -left-20 w-[600px] h-[600px] bg-orange-200/40 rounded-full blur-[120px] mix-blend-multiply" />
-        <div className="absolute top-1/3 -right-40 w-[700px] h-[700px] bg-blue-200/40 rounded-full blur-[150px] mix-blend-multiply" />
-        <div className="absolute -bottom-40 left-1/4 w-[500px] h-[500px] bg-purple-200/30 rounded-full blur-[120px] mix-blend-multiply" />
-        <div className="absolute inset-0 bg-white/30 backdrop-blur-[50px] z-10" />
-      </div>
-
-      <div className="relative z-20 max-w-7xl mx-auto w-full px-4 py-6 sm:px-6 lg:px-8">
-        
-        {profile && (
-          <div className="mb-8 bg-white/40 backdrop-blur-2xl border border-white/60 p-2 sm:p-3 rounded-[2.5rem] sm:rounded-full shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col sm:flex-row items-center gap-4 relative overflow-hidden group">
-            
-            <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-
-            <img 
-              src={profile.imageUrl} 
-              className="w-14 h-14 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-white shadow-md shrink-0 relative z-10" 
-              alt={profile.name} 
-            />
-            
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 flex-1 min-w-0 w-full text-center sm:text-left relative z-10">
-              <div className="flex justify-center sm:justify-start items-center gap-2 shrink-0">
-                <h1 className="text-lg sm:text-xl font-black tracking-tight text-slate-800 truncate">
-                  {profile.name}
-                </h1>
-                <span className="px-2 py-1 rounded-full bg-slate-800/5 text-slate-600 font-black tracking-widest text-[9px] uppercase border border-slate-800/5">
-                  Creator
-                </span>
-              </div>
-              
-              <p className="text-xs sm:text-sm text-slate-500 font-medium truncate w-full">
-                {profile.bio}
-              </p>
-            </div>
-
-            {/* --- DYNAMIC SOCIAL MEDIA LINKS --- */}
-            <div className="flex items-center gap-2 sm:gap-3 sm:ml-auto shrink-0 px-2 py-2 sm:py-0 w-full sm:w-auto justify-center sm:justify-end relative z-10">
-              
-              {/* Only render the link if the database field is NOT empty */}
-              {profile.instagram && (
-                <a href={profile.instagram} target="_blank" rel="noopener noreferrer" className={`${socialButtonClass} text-[#E1306C]`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
-                </a>
-              )}
-
-              {profile.youtube && (
-                <a href={profile.youtube} target="_blank" rel="noopener noreferrer" className={`${socialButtonClass} text-[#FF0000]`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon></svg>
-                </a>
-              )}
-
-              {profile.linkedin && (
-                <a href={profile.linkedin} target="_blank" rel="noopener noreferrer" className={`${socialButtonClass} text-[#0A66C2]`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
-                </a>
-              )}
-
-              {profile.facebook && (
-                <a href={profile.facebook} target="_blank" rel="noopener noreferrer" className={`${socialButtonClass} text-[#1877F2]`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
-                </a>
-              )}
-
-              {profile.email && (
-                <a href={`mailto:${profile.email}`} className={`${socialButtonClass} text-slate-600`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-                </a>
-              )}
-              
-            </div>
-            
-          </div>
+      <main className="relative z-10 max-w-4xl mx-auto w-full px-3.5 sm:px-6 py-6 sm:py-8">
+        {loading ? (
+          <div className="h-32 mb-6 rounded-3xl bg-white/70 animate-pulse border border-slate-200" />
+        ) : (
+          <HeroProfile profile={profile} />
         )}
 
-        <div className="flex overflow-x-auto gap-2 sm:gap-3 mb-8 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden relative z-10">
-          {categories.map(category => (
-            <button 
-              key={category}
-              onClick={() => setActiveCategory(category)}
-              className={`whitespace-nowrap px-5 py-2.5 rounded-full font-bold text-xs sm:text-sm transition-all duration-300 ${
-                activeCategory === category 
-                ? 'bg-slate-800 text-white shadow-lg shadow-slate-800/20 scale-105' 
-                : 'bg-white/40 text-slate-600 hover:bg-white hover:text-slate-900 border border-white/60 backdrop-blur-md shadow-sm'
-              }`}
-            >
-              {category}
-            </button>
-          ))}
+        {/* Controls: Search, Categories, and Layout Toggle */}
+        <div className="mb-5 max-w-xl mx-auto">
+          <SearchBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            totalResults={filteredProducts.length}
+          />
+
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <CategoryPills
+                categories={categories}
+                activeCategory={activeCategory}
+                setActiveCategory={setActiveCategory}
+              />
+            </div>
+
+            {/* Layout Toggle Button */}
+            <div className="flex items-center p-1 rounded-2xl bg-white/80 border border-slate-200 shadow-xs shrink-0 mb-6">
+              <button
+                onClick={() => setLayoutView('list')}
+                title="Minimal Linkup List View"
+                className={`p-2 rounded-xl text-xs font-bold transition-all ${
+                  layoutView === 'list'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="8" y1="6" x2="21" y2="6"/>
+                  <line x1="8" y1="12" x2="21" y2="12"/>
+                  <line x1="8" y1="18" x2="21" y2="18"/>
+                  <line x1="3" y1="6" x2="3.01" y2="6"/>
+                  <line x1="3" y1="12" x2="3.01" y2="12"/>
+                  <line x1="3" y1="18" x2="3.01" y2="18"/>
+                </svg>
+              </button>
+
+              <button
+                onClick={() => setLayoutView('grid')}
+                title="Grid View"
+                className={`p-2 rounded-xl text-xs font-bold transition-all ${
+                  layoutView === 'grid'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <rect x="3" y="3" width="7" height="7" rx="1"/>
+                  <rect x="14" y="3" width="7" height="7" rx="1"/>
+                  <rect x="14" y="14" width="7" height="7" rx="1"/>
+                  <rect x="3" y="14" width="7" height="7" rx="1"/>
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6 pb-20 relative z-10">
-          {filteredProducts.map(p => <ProductCard key={p.id} product={p} />)}
-          
-          {filteredProducts.length === 0 && (
-            <p className="col-span-full text-center text-slate-400 font-bold italic mt-10">
-              No products found in this category.
-            </p>
-          )}
-        </div>
+        {/* Product Showcase */}
+        {loading ? (
+          <SkeletonCard count={6} />
+        ) : (
+          <motion.div
+            layout
+            className={
+              layoutView === 'list'
+                ? 'max-w-xl mx-auto space-y-1 pb-24'
+                : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 pb-24'
+            }
+          >
+            <AnimatePresence mode="popLayout">
+              {filteredProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  layout={layoutView}
+                  onQuickView={(p) => setSelectedProduct(p)}
+                  onCopyLink={handleCopyLink}
+                />
+              ))}
+            </AnimatePresence>
 
-      </div>
+            {filteredProducts.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="col-span-full py-12 px-4 text-center rounded-3xl bg-white/80 border border-slate-200 backdrop-blur-xl shadow-xs"
+              >
+                <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-600 border border-orange-200">
+                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 mb-1 font-heading">No gear found</h3>
+                <p className="text-slate-500 text-xs max-w-xs mx-auto">
+                  Try adjusting search terms or resetting filters.
+                </p>
+                <button
+                  onClick={() => {
+                    setActiveCategory('All')
+                    setSearchQuery('')
+                  }}
+                  className="mt-4 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-all shadow-xs"
+                >
+                  Reset Filters
+                </button>
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+      </main>
+
+      {selectedProduct && (
+        <ProductModal
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onCopyLink={handleCopyLink}
+        />
+      )}
+
+      <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
     </div>
   )
 }

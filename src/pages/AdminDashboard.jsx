@@ -1,16 +1,34 @@
 import React, { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabase'
+import BackgroundMesh from '../components/BackgroundMesh'
+import Toast from '../components/Toast'
 
 export default function AdminDashboard() {
-  const [uploading, setUploading] = useState(false)
-  const [formData, setFormData] = useState({ title: '', category: '', affiliateLink: '', image: '' })
+  const [activeTab, setActiveTab] = useState('inventory') // 'inventory' | 'profile'
   const [products, setProducts] = useState([])
+  const [uploading, setUploading] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [toastMessage, setToastMessage] = useState(null)
+
+  const [formData, setFormData] = useState({
+    title: '',
+    category: '',
+    affiliateLink: '',
+    image: ''
+  })
 
   const [profileUploading, setProfileUploading] = useState(false)
-  // NEW: Added social media fields to our state
-  const [profileData, setProfileData] = useState({ 
-    name: '', bio: '', imageUrl: '', instagram: '', youtube: '', linkedin: '', facebook: '', email: '' 
+  const [profileData, setProfileData] = useState({
+    name: '',
+    bio: '',
+    imageUrl: '',
+    instagram: '',
+    youtube: '',
+    linkedin: '',
+    facebook: '',
+    email: ''
   })
 
   useEffect(() => {
@@ -18,36 +36,58 @@ export default function AdminDashboard() {
     fetchProfile()
   }, [])
 
+  const triggerToast = (msg) => {
+    setToastMessage(msg)
+    setTimeout(() => setToastMessage(null), 3000)
+  }
+
   async function fetchProfile() {
-    const { data } = await supabase.from('profile').select('*').eq('id', 1).single()
-    if (data) {
-      setProfileData({ 
-        name: data.name || '', 
-        bio: data.bio || '', 
-        imageUrl: data.imageUrl || '',
-        instagram: data.instagram || '',
-        youtube: data.youtube || '',
-        linkedin: data.linkedin || '',
-        facebook: data.facebook || '',
-        email: data.email || ''
-      })
+    try {
+      const { data } = await supabase.from('profile').select('*').eq('id', 1).single()
+      if (data) {
+        setProfileData({
+          name: data.name || '',
+          bio: data.bio || '',
+          imageUrl: data.imageUrl || '',
+          instagram: data.instagram || '',
+          youtube: data.youtube || '',
+          linkedin: data.linkedin || '',
+          facebook: data.facebook || '',
+          email: data.email || ''
+        })
+      }
+    } catch (e) {
+      console.error('Error fetching profile:', e)
     }
   }
 
-  const handleProfileChange = (e) => setProfileData({ ...profileData, [e.target.name]: e.target.value })
+  async function fetchProducts() {
+    try {
+      const { data } = await supabase.from('products').select('*').order('createdAt', { ascending: false })
+      if (data) setProducts(data)
+    } catch (e) {
+      console.error('Error fetching products:', e)
+    }
+  }
+
+  const handleProfileChange = (e) => {
+    setProfileData({ ...profileData, [e.target.value]: e.target.value })
+  }
 
   const handleProfileImageUpload = async (e) => {
     try {
       setProfileUploading(true)
       const file = e.target.files[0]
+      if (!file) return
       const fileExt = file.name.split('.').pop()
       const fileName = `profile_${Math.random()}.${fileExt}`
       const { error: uploadError } = await supabase.storage.from('product-images').upload(fileName, file)
       if (uploadError) throw uploadError
       const { data } = supabase.storage.from('product-images').getPublicUrl(fileName)
       setProfileData({ ...profileData, imageUrl: data.publicUrl })
+      triggerToast('Profile image uploaded!')
     } catch (error) {
-      alert('Error uploading profile image!')
+      triggerToast('Error uploading profile image!')
     } finally {
       setProfileUploading(false)
     }
@@ -56,42 +96,41 @@ export default function AdminDashboard() {
   const handleProfileSubmit = async (e) => {
     e.preventDefault()
     try {
-      // NEW: Added social fields to the update payload
-      const { error } = await supabase.from('profile').update({ 
-        name: profileData.name, 
-        bio: profileData.bio, 
-        "imageUrl": profileData.imageUrl,
+      const { error } = await supabase.from('profile').update({
+        name: profileData.name,
+        bio: profileData.bio,
+        imageUrl: profileData.imageUrl,
         instagram: profileData.instagram,
         youtube: profileData.youtube,
         linkedin: profileData.linkedin,
         facebook: profileData.facebook,
         email: profileData.email
       }).eq('id', 1)
+
       if (error) throw error
-      alert('Profile & Socials updated!')
+      triggerToast('Profile & Socials updated successfully!')
     } catch (error) {
-      alert('Error updating profile!')
+      triggerToast('Error updating profile!')
     }
   }
 
-  async function fetchProducts() {
-    const { data } = await supabase.from('products').select('*').order('createdAt', { ascending: false })
-    if (data) setProducts(data)
+  const handleProductChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value })
   }
-
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value })
 
   const handleImageUpload = async (e) => {
     try {
       setUploading(true)
       const file = e.target.files[0]
+      if (!file) return
       const fileName = `${Math.random()}.${file.name.split('.').pop()}`
       const { error } = await supabase.storage.from('product-images').upload(fileName, file)
       if (error) throw error
       const { data } = supabase.storage.from('product-images').getPublicUrl(fileName)
       setFormData({ ...formData, image: data.publicUrl })
+      triggerToast('Product image uploaded!')
     } catch (error) {
-      alert('Error uploading image!')
+      triggerToast('Error uploading image!')
     } finally {
       setUploading(false)
     }
@@ -99,7 +138,12 @@ export default function AdminDashboard() {
 
   const handleEditClick = (product) => {
     setEditingId(product.id)
-    setFormData({ title: product.title, category: product.category, affiliateLink: product.affiliateLink, image: product.image })
+    setFormData({
+      title: product.title,
+      category: product.category,
+      affiliateLink: product.affiliateLink || product.affiliate_link || '',
+      image: product.image
+    })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -113,181 +157,448 @@ export default function AdminDashboard() {
     try {
       if (editingId) {
         const { error } = await supabase.from('products').update({
-          title: formData.title, category: formData.category, "affiliateLink": formData.affiliateLink, image: formData.image
+          title: formData.title,
+          category: formData.category,
+          affiliateLink: formData.affiliateLink,
+          image: formData.image
         }).eq('id', editingId)
+
         if (error) throw error
-        alert('Product updated!')
+        triggerToast('Product updated successfully!')
       } else {
         const { error } = await supabase.from('products').insert([{
-          title: formData.title, category: formData.category, "affiliateLink": formData.affiliateLink, image: formData.image
+          title: formData.title,
+          category: formData.category,
+          affiliateLink: formData.affiliateLink,
+          image: formData.image
         }])
+
         if (error) throw error
-        alert('Product published!')
+        triggerToast('New product published!')
       }
+
       setEditingId(null)
       setFormData({ title: '', category: '', affiliateLink: '', image: '' })
       fetchProducts()
     } catch (error) {
-      alert('Error saving product!')
+      triggerToast('Error saving product!')
     }
   }
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this product?")) return;
+    if (!window.confirm('Delete this product permanently?')) return
     try {
       const { error } = await supabase.from('products').delete().eq('id', id)
       if (error) throw error
-      setProducts(products.filter(product => product.id !== id))
+      setProducts(products.filter((product) => product.id !== id))
+      triggerToast('Product deleted.')
     } catch (error) {
-      alert("Error deleting product.")
+      triggerToast('Error deleting product.')
     }
   }
 
-  const inputClass = "w-full p-3.5 rounded-xl bg-white/50 border border-white/80 focus:outline-none focus:ring-2 focus:ring-slate-400/20 focus:border-slate-400 text-slate-800 placeholder-slate-400 shadow-sm transition-all text-sm font-medium"
-  const panelClass = "bg-white/40 backdrop-blur-2xl border border-white/60 p-6 sm:p-8 rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] relative z-20"
+  const filteredProducts = products.filter(p =>
+    searchQuery === '' ||
+    p.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.category?.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const categoriesCount = new Set(products.map(p => p.category)).size
+  const activeSocialsCount = [
+    profileData.instagram, profileData.youtube, profileData.linkedin, profileData.facebook, profileData.email
+  ].filter(Boolean).length
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-10 w-full max-w-7xl mx-auto bg-[#faf9f8] relative min-h-screen">
+    <div className="relative flex-1 min-h-screen bg-[#f4f7fb] text-slate-900 w-full overflow-y-auto pb-20">
+      <BackgroundMesh />
 
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -top-40 -left-20 w-[600px] h-[600px] bg-orange-200/40 rounded-full blur-[120px] mix-blend-multiply" />
-        <div className="absolute top-1/3 -right-40 w-[700px] h-[700px] bg-blue-200/40 rounded-full blur-[150px] mix-blend-multiply" />
-        <div className="absolute -bottom-40 left-1/4 w-[500px] h-[500px] bg-purple-200/30 rounded-full blur-[120px] mix-blend-multiply" />
-        <div className="absolute inset-0 bg-white/30 backdrop-blur-[50px] z-10" />
-      </div>
+      <main className="relative z-10 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+        
+        {/* Header Title */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight font-heading">
+              Admin Control Hub
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">
+              Manage affiliate inventory, profile information, and social links.
+            </p>
+          </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 relative z-20 lg:items-start pt-4">
-
-        <div className="w-full lg:w-5/12 flex flex-col gap-6 lg:gap-8 shrink-0">
-          
-          {/* PROFILE & SOCIALS EDITOR */}
-          <div className={panelClass}>
-            <h2 className="text-xl font-black text-slate-800 mb-5 tracking-tight flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          {/* Navigation Tabs */}
+          <div className="flex items-center p-1.5 rounded-2xl bg-white border border-slate-200 shrink-0 shadow-sm">
+            <button
+              onClick={() => setActiveTab('inventory')}
+              className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                activeTab === 'inventory'
+                  ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Inventory Management
+            </button>
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                activeTab === 'profile'
+                  ? 'bg-orange-500 text-white shadow-md shadow-orange-500/25'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
               Profile & Socials
-            </h2>
-            <form onSubmit={handleProfileSubmit} className="space-y-4 flex flex-col">
-              <div className="flex items-center gap-4 bg-white/50 p-3 rounded-2xl border border-white/80 shadow-sm">
-                {profileData.imageUrl && (
-                  <img src={profileData.imageUrl} alt="Profile" className="w-12 h-12 rounded-full object-cover shadow-sm border border-white" />
-                )}
-                <div className="flex-1">
-                  <input type="file" accept="image/*" onChange={handleProfileImageUpload} disabled={profileUploading} className="file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-800 file:text-white w-full text-xs text-slate-600 hover:file:bg-slate-700 transition-all cursor-pointer" />
-                </div>
-              </div>
-              <input type="text" name="name" placeholder="Creator Name" value={profileData.name} onChange={handleProfileChange} required className={inputClass} />
-              <textarea name="bio" placeholder="Bio..." value={profileData.bio} onChange={handleProfileChange} required className={`${inputClass} h-20 resize-none`} />
-              
-              {/* NEW: SOCIAL MEDIA INPUT SECTION */}
-              <div className="pt-2 pb-2 space-y-3">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">Social Links <span className="text-slate-400 font-normal lowercase">(Leave blank to hide)</span></p>
-                <input type="url" name="instagram" placeholder="Instagram URL" value={profileData.instagram} onChange={handleProfileChange} className={inputClass} />
-                <input type="url" name="youtube" placeholder="YouTube URL" value={profileData.youtube} onChange={handleProfileChange} className={inputClass} />
-                <input type="url" name="linkedin" placeholder="LinkedIn URL" value={profileData.linkedin} onChange={handleProfileChange} className={inputClass} />
-                <input type="url" name="facebook" placeholder="Facebook URL" value={profileData.facebook} onChange={handleProfileChange} className={inputClass} />
-                <input type="email" name="email" placeholder="Contact Email Address" value={profileData.email} onChange={handleProfileChange} className={inputClass} />
-              </div>
+            </button>
+          </div>
+        </div>
 
-              <button type="submit" disabled={profileUploading} className="bg-slate-800 text-white text-sm hover:bg-slate-700 font-black py-3 rounded-xl disabled:opacity-40 transition-all shadow-md shadow-slate-800/10 mt-2">Update Profile</button>
-            </form>
+        {/* Dashboard Statistics Overview Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div className="p-5 rounded-3xl bg-white/80 border border-slate-200 backdrop-blur-xl flex items-center gap-4 shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center">
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Products</p>
+              <h3 className="text-2xl font-extrabold text-slate-900 font-heading">{products.length} Items</h3>
+            </div>
           </div>
 
-          <div className={panelClass}>
-            <h2 className="text-xl font-black text-slate-800 mb-5 tracking-tight flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              {editingId ? 'Edit Product' : 'Add New Product'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-4 flex flex-col">
-              
-              {editingId && formData.image && (
-                <div className="flex justify-center mb-2">
-                   <img src={formData.image} alt="Preview" className="w-20 h-20 object-contain bg-white rounded-2xl border border-slate-100 p-2 shadow-sm" />
-                </div>
-              )}
+          <div className="p-5 rounded-3xl bg-white/80 border border-slate-200 backdrop-blur-xl flex items-center gap-4 shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-sky-50 border border-sky-200 text-sky-600 flex items-center justify-center">
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                <polyline points="2 17 12 22 22 17"/>
+                <polyline points="2 12 12 17 22 12"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Categories</p>
+              <h3 className="text-2xl font-extrabold text-slate-900 font-heading">{categoriesCount} Active</h3>
+            </div>
+          </div>
 
-              <div className="bg-white/50 p-3 rounded-2xl border border-white/80 shadow-sm">
-                <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} className="file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white file:text-slate-800 file:shadow-sm w-full text-xs text-slate-600 cursor-pointer" />
-                {formData.image && !editingId && <p className="text-[10px] text-emerald-600 mt-2 font-bold px-1 flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Image uploaded</p>}
+          <div className="p-5 rounded-3xl bg-white/80 border border-slate-200 backdrop-blur-xl flex items-center gap-4 shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center">
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Social Links</p>
+              <h3 className="text-2xl font-extrabold text-slate-900 font-heading">{activeSocialsCount} Linked</h3>
+            </div>
+          </div>
+        </div>
+
+        {/* Tab 1: Inventory Management */}
+        {activeTab === 'inventory' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Left Form */}
+            <div className="lg:col-span-5">
+              <div className="p-6 sm:p-8 rounded-3xl bg-white/80 border border-slate-200 backdrop-blur-xl shadow-lg">
+                <h2 className="text-xl font-extrabold text-slate-900 mb-6 font-heading flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+                  {editingId ? 'Edit Product' : 'Publish Product'}
+                </h2>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                      Product Image
+                    </label>
+                    {formData.image && (
+                      <div className="mb-3 p-2 rounded-2xl bg-slate-50 flex justify-center border border-slate-200">
+                        <img src={formData.image} alt="Preview" className="h-24 object-contain mix-blend-multiply" />
+                      </div>
+                    )}
+
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-300 text-center">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={uploading}
+                        className="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-orange-500 file:text-white cursor-pointer"
+                      />
+                      {uploading && <p className="text-xs text-orange-600 font-bold mt-2 animate-pulse">Uploading image...</p>}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Title</label>
+                    <input
+                      type="text"
+                      name="title"
+                      placeholder="e.g. Sony Alpha 7 IV"
+                      value={formData.title}
+                      onChange={handleProductChange}
+                      required
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 text-sm font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Category</label>
+                    <input
+                      type="text"
+                      name="category"
+                      list="category-suggestions"
+                      placeholder="e.g. Headphones, Mobiles, Tools"
+                      value={formData.category}
+                      onChange={handleProductChange}
+                      required
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 text-sm font-medium"
+                    />
+                    <datalist id="category-suggestions">
+                      <option value="Headphones" />
+                      <option value="Mobiles" />
+                      <option value="Tools" />
+                      <option value="Creator Gear" />
+                    </datalist>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Affiliate Destination Link</label>
+                    <input
+                      type="url"
+                      name="affiliateLink"
+                      placeholder="https://amazon.in/dp/..."
+                      value={formData.affiliateLink}
+                      onChange={handleProductChange}
+                      required
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 text-sm font-medium"
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="submit"
+                      disabled={uploading || !formData.image}
+                      className="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold text-sm transition-all shadow-md shadow-orange-500/25 disabled:opacity-40"
+                    >
+                      {editingId ? 'Save Changes' : 'Publish Product'}
+                    </button>
+                    {editingId && (
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-all border border-slate-200"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </form>
               </div>
-              
-              <input type="text" name="title" placeholder="Product Title" value={formData.title} onChange={handleChange} required className={inputClass} />
-              
-              <input 
-                type="text" 
-                name="category" 
-                list="category-options"
-                placeholder="Category (Type or Select)" 
-                value={formData.category} 
-                onChange={handleChange} 
-                required 
-                className={inputClass} 
-              />
-              <datalist id="category-options">
-                <option value="Creator Gear" />
-                <option value="Tech Gadgets" />
-                <option value="Mobile Accessories" />
-                <option value="PC Setup" />
-              </datalist>
-              
-              <input type="url" name="affiliateLink" placeholder="Affiliate Link (Amazon, etc.)" value={formData.affiliateLink} onChange={handleChange} required className={inputClass} />
-              
-              <div className="flex gap-3 pt-2">
-                <button type="submit" disabled={uploading || !formData.image} className="flex-1 bg-slate-800 text-white text-sm hover:bg-slate-700 font-black py-3 rounded-xl disabled:opacity-40 transition-all shadow-md shadow-slate-800/10">
-                  {editingId ? 'Update Product' : 'Publish Product'}
+            </div>
+
+            {/* Right List */}
+            <div className="lg:col-span-7">
+              <div className="p-6 sm:p-8 rounded-3xl bg-white/80 border border-slate-200 backdrop-blur-xl shadow-lg flex flex-col max-h-[750px]">
+                <div className="flex items-center justify-between gap-4 mb-6">
+                  <h2 className="text-xl font-extrabold text-slate-900 font-heading">
+                    Current Inventory ({filteredProducts.length})
+                  </h2>
+
+                  <input
+                    type="text"
+                    placeholder="Filter inventory..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 text-xs focus:outline-none focus:border-orange-500 w-48"
+                  />
+                </div>
+
+                <div className="space-y-3 overflow-y-auto pr-1">
+                  <AnimatePresence>
+                    {filteredProducts.map((product) => (
+                      <motion.div
+                        key={product.id}
+                        layout
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200 hover:border-orange-300 transition-all gap-4 shadow-sm group"
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className="w-12 h-12 rounded-xl bg-slate-50 p-1 flex items-center justify-center shrink-0 border border-slate-100">
+                            <img src={product.image} alt={product.title} className="max-h-full max-w-full object-contain mix-blend-multiply" />
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-slate-900 text-sm truncate">{product.title}</h4>
+                            <span className="text-[10px] uppercase font-bold text-orange-600 tracking-wider">
+                              {product.category}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => handleEditClick(product)}
+                            className="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all border border-slate-200 cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(product.id)}
+                            className="px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition-all border border-rose-200 cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+
+                  {filteredProducts.length === 0 && (
+                    <div className="text-center py-12 text-slate-400">
+                      <p className="text-sm font-medium">No items matching filter.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 2: Profile */}
+        {activeTab === 'profile' && (
+          <div className="max-w-3xl mx-auto">
+            <div className="p-6 sm:p-8 rounded-3xl bg-white/80 border border-slate-200 backdrop-blur-xl shadow-lg">
+              <h2 className="text-xl font-extrabold text-slate-900 mb-6 font-heading flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                Edit Profile & Social Links
+              </h2>
+
+              <form onSubmit={handleProfileSubmit} className="space-y-6">
+                <div className="flex items-center gap-6 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                  <img
+                    src={profileData.imageUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'}
+                    alt="Profile Avatar"
+                    className="w-16 h-16 rounded-full object-cover border-2 border-orange-500 shadow-md shrink-0"
+                  />
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                      Upload Avatar
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleProfileImageUpload}
+                      disabled={profileUploading}
+                      className="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-orange-500 file:text-white cursor-pointer"
+                    />
+                    {profileUploading && <p className="text-xs text-orange-600 font-bold mt-1">Uploading avatar...</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Creator Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={profileData.name}
+                      onChange={handleProfileChange}
+                      required
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 text-sm font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Contact Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={profileData.email}
+                      onChange={handleProfileChange}
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 text-sm font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Bio / Tagline</label>
+                  <textarea
+                    name="bio"
+                    rows="3"
+                    value={profileData.bio}
+                    onChange={handleProfileChange}
+                    required
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 text-sm font-medium resize-none"
+                  />
+                </div>
+
+                <div className="pt-4 border-t border-slate-200 space-y-4">
+                  <h3 className="text-sm font-bold text-orange-600 uppercase tracking-wider">Social Platform URLs</h3>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">Instagram URL</label>
+                    <input
+                      type="url"
+                      name="instagram"
+                      placeholder="https://instagram.com/username"
+                      value={profileData.instagram}
+                      onChange={handleProfileChange}
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 text-sm font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">YouTube URL</label>
+                    <input
+                      type="url"
+                      name="youtube"
+                      placeholder="https://youtube.com/@channel"
+                      value={profileData.youtube}
+                      onChange={handleProfileChange}
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 text-sm font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">LinkedIn URL</label>
+                    <input
+                      type="url"
+                      name="linkedin"
+                      placeholder="https://linkedin.com/in/username"
+                      value={profileData.linkedin}
+                      onChange={handleProfileChange}
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 text-sm font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">Facebook URL</label>
+                    <input
+                      type="url"
+                      name="facebook"
+                      placeholder="https://facebook.com/username"
+                      value={profileData.facebook}
+                      onChange={handleProfileChange}
+                      className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 text-sm font-medium"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={profileUploading}
+                  className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold shadow-lg shadow-orange-500/25 transition-all transform active:scale-95 disabled:opacity-40"
+                >
+                  Save Profile & Social Links
                 </button>
-                {editingId && (
-                  <button type="button" onClick={cancelEdit} className="bg-white text-slate-600 border border-white/80 text-sm hover:bg-slate-50 font-black px-5 rounded-xl transition-all shadow-sm">Cancel</button>
-                )}
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
+        )}
+      </main>
 
-        </div>
-
-        <div className={`w-full lg:w-7/12 ${panelClass} flex flex-col max-h-[85vh]`}>
-          <div className="flex items-center justify-between mb-6 shrink-0 border-b border-black/5 pb-4">
-             <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                Manage Inventory
-             </h2>
-             <span className="bg-white/60 text-slate-600 text-xs font-bold px-3 py-1 rounded-full border border-white/80 shadow-sm">{products.length} Items</span>
-          </div>
-          
-          <div className="space-y-3 overflow-y-auto pr-2 pb-4" style={{ scrollbarWidth: 'thin' }}>
-            {products.map(product => (
-              <div key={product.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-white/40 rounded-2xl border border-white/80 hover:bg-white/60 transition-all gap-4 shadow-sm group">
-                
-                <div className="flex items-center gap-4 overflow-hidden">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white rounded-xl border border-slate-100 flex items-center justify-center shrink-0 p-1.5 shadow-sm">
-                    <img src={product.image} alt={product.title} className="w-full h-full object-contain mix-blend-multiply" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-slate-800 text-sm truncate">{product.title}</h3>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate mt-0.5">{product.category}</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-                  <button onClick={() => handleEditClick(product)} className="bg-white hover:bg-slate-50 text-slate-600 px-4 py-2 text-xs rounded-xl font-bold transition-all shadow-sm border border-slate-200">
-                    Edit
-                  </button>
-                  <button onClick={() => handleDelete(product.id)} className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 text-xs rounded-xl font-bold transition-all shadow-sm border border-red-100">
-                    Delete
-                  </button>
-                </div>
-
-              </div>
-            ))}
-            {products.length === 0 && (
-              <div className="text-center py-10">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mx-auto text-slate-300 mb-3"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                 <p className="text-slate-400 font-bold text-sm">Your inventory is empty.</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-      </div>
+      <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
     </div>
   )
 }

@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { supabase } from '../lib/supabase'
+import BackgroundMesh from '../components/BackgroundMesh'
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
-  const [step, setStep] = useState(1) 
+  const [step, setStep] = useState(1)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
 
@@ -15,79 +17,128 @@ export default function AdminLogin() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithOtp({ email: email })
-    if (error) { setError(error.message); setLoading(false) } 
-    else { setStep(2); setLoading(false) }
+    const { error } = await supabase.auth.signInWithOtp({ email })
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+    } else {
+      setStep(2)
+      setLoading(false)
+    }
   }
 
   const handleVerifyCode = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { data, error } = await supabase.auth.verifyOtp({ email: email, token: code, type: 'email' })
-    if (error) { setError(error.message); setLoading(false) } 
-    else if (data.session) { navigate('/admin') }
+    const { data, error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' })
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+    } else if (data.session) {
+      navigate('/admin')
+    }
   }
 
-  // Upgraded input styling
-  const inputClass = "w-full p-4 rounded-2xl bg-white/50 border border-white/80 focus:outline-none focus:ring-2 focus:ring-slate-400/20 focus:border-slate-400 text-slate-800 placeholder-slate-400 transition-all font-bold tracking-widest text-center text-lg shadow-inner"
-
   return (
-    <div className="flex-1 flex items-center justify-center p-6 w-full h-screen bg-[#faf9f8] relative overflow-hidden">
+    <div className="relative flex-1 min-h-screen flex items-center justify-center p-6 bg-[#f4f7fb] text-slate-900 overflow-hidden">
+      <BackgroundMesh />
 
-      {/* --- PREMIUM AURORA MESH BACKGROUND --- */}
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -top-40 -left-20 w-[600px] h-[600px] bg-orange-200/40 rounded-full blur-[120px] mix-blend-multiply" />
-        <div className="absolute top-1/3 -right-40 w-[700px] h-[700px] bg-blue-200/40 rounded-full blur-[150px] mix-blend-multiply" />
-        <div className="absolute -bottom-40 left-1/4 w-[500px] h-[500px] bg-purple-200/30 rounded-full blur-[120px] mix-blend-multiply" />
-        <div className="absolute inset-0 bg-white/30 backdrop-blur-[50px] z-10" />
-      </div>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="relative z-10 w-full max-w-md p-8 sm:p-10 rounded-[2.5rem] bg-white/90 border border-slate-200 shadow-2xl backdrop-blur-2xl"
+      >
+        <div className="w-14 h-14 mx-auto mb-6 rounded-2xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center shadow-md">
+          <svg className="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
 
-      {/* --- GLASS LOGIN PANEL --- */}
-      <div className="relative z-20 bg-white/40 backdrop-blur-2xl p-8 sm:p-10 rounded-[2.5rem] shadow-[0_8px_40px_rgba(0,0,0,0.04)] w-full max-w-sm border border-white/60 group">
-        
-        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none rounded-[2.5rem]" />
-
-        <div className="text-center mb-8 relative z-10">
-          <h2 className="text-3xl font-black text-slate-800 tracking-tight">Admin Access</h2>
-          <p className="text-slate-500 mt-2 text-xs tracking-[0.2em] uppercase font-black">
-            {step === 1 ? 'Secure Gateway' : 'Check Your Inbox'}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight font-heading">
+            Admin Gateway
+          </h2>
+          <p className="text-xs uppercase tracking-widest font-bold text-orange-600 mt-2">
+            {step === 1 ? 'Authorized Access Only' : 'Enter One-Time Security Passcode'}
           </p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl mb-6 text-sm text-center font-bold relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 text-xs font-semibold text-center"
+          >
             {error}
-          </div>
+          </motion.div>
         )}
 
         {step === 1 && (
-          <form onSubmit={handleSendCode} className="space-y-6 relative z-10">
-            <input type="email" placeholder="ADMIN EMAIL" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} required />
-            <button type="submit" disabled={loading} className="w-full bg-slate-800 text-white font-black py-4 rounded-2xl hover:bg-slate-700 transition-all shadow-lg shadow-slate-800/20 disabled:opacity-40 active:scale-95">
-              {loading ? 'Sending...' : 'Send Secure Code'}
+          <form onSubmit={handleSendCode} className="space-y-5">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 pl-1">
+                Admin Email Address
+              </label>
+              <input
+                type="email"
+                placeholder="admin@vijayvisions.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-center text-base shadow-inner"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold shadow-lg shadow-orange-500/25 transition-all transform active:scale-95 disabled:opacity-40"
+            >
+              {loading ? 'Sending Code...' : 'Send Access OTP'}
             </button>
           </form>
         )}
 
         {step === 2 && (
-          <form onSubmit={handleVerifyCode} className="space-y-6 relative z-10">
+          <form onSubmit={handleVerifyCode} className="space-y-5">
             <div>
-              <p className="text-center text-sm font-medium text-slate-500 mb-4">
-                Sent 8-digit code to<br/><span className="text-slate-800 font-bold">{email}</span>
+              <p className="text-center text-xs text-slate-500 mb-4">
+                Enter passcode sent to <br />
+                <span className="text-orange-600 font-bold">{email}</span>
               </p>
-              <input type="text" maxLength="8" placeholder="00000000" value={code} onChange={(e) => setCode(e.target.value)} className={inputClass} required />
+
+              <input
+                type="text"
+                maxLength="8"
+                placeholder="00000000"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                required
+                className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:bg-white transition-all font-mono tracking-widest text-center text-xl font-bold shadow-inner"
+              />
             </div>
-            <button type="submit" disabled={loading || code.length < 8} className="w-full bg-slate-800 text-white font-black py-4 rounded-2xl hover:bg-slate-700 transition-all shadow-lg shadow-slate-800/20 disabled:opacity-40 active:scale-95">
-              {loading ? 'Verifying...' : 'Verify & Login'}
+
+            <button
+              type="submit"
+              disabled={loading || code.length < 8}
+              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold shadow-lg shadow-orange-500/25 transition-all transform active:scale-95 disabled:opacity-40"
+            >
+              {loading ? 'Verifying...' : 'Authenticate & Unlock'}
             </button>
-            <button type="button" onClick={() => setStep(1)} className="w-full text-slate-400 hover:text-slate-800 font-bold text-xs uppercase tracking-widest mt-4 transition-colors">
+
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="w-full text-center text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors pt-2"
+            >
               ← Use a different email
             </button>
           </form>
         )}
-
-      </div>
+      </motion.div>
     </div>
   )
 }
